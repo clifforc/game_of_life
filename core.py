@@ -1,38 +1,25 @@
 from time import sleep
+
 import pygame
 import numpy as np
 from scipy.signal import convolve2d
 
+import constants as c
+
 # Set pygame window name
 pygame.display.set_caption('Game of life')
-
-# Define color constants
-COLOR_BACKGROUND = (0, 0, 0)
-COLOR_GRID = (40, 40, 40)
-COLOR_ALIVE_CELLS = (255, 255, 255)
-
-# Define screen size
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
-ACTIVE_WIDTH = 600
-
-# Define cells size
-CELLS_SIZE = 10
-
-# Text margin
-TEXT_MARGIN = SCREEN_WIDTH - (SCREEN_WIDTH - ACTIVE_WIDTH - 5)
 
 
 def update(screen, cells, size, show_progress=False):
     updated_cells = cells_life_logic(cells)
     for row, col in np.ndindex(cells.shape):
-        color = COLOR_BACKGROUND if cells[row, col] == 0 else COLOR_ALIVE_CELLS
+        color = c.COLOR_BACKGROUND if cells[row, col] == 0 \
+            else c.COLOR_ALIVE_CELLS
         if show_progress:
             if updated_cells[row, col] == 0 and cells[row, col] == 1:
-                color = COLOR_BACKGROUND
+                color = c.COLOR_BACKGROUND
             elif updated_cells[row, col] == 1 and cells[row, col] == 0:
-                color = COLOR_ALIVE_CELLS
+                color = c.COLOR_ALIVE_CELLS
         pygame.draw.rect(screen, color, (col * size, row * size,
                                          size - 1, size - 1))
     return updated_cells
@@ -50,32 +37,36 @@ def cells_life_logic(cells):
     return updated_cells
 
 
-def rules(screen):
+def display_rules(screen):
     default_font = pygame.font.Font(None, 21)
     rules_text = ['HOTKEYS',
                   'Press "Spacebar" to pause',
                   'Press "c" to reset field',
-                  'Press "q" to quit game']
+                  'Press "q" to quit game',]
     text_offset = 30
     for rule in rules_text:
-        text = default_font.render(rule, True, COLOR_ALIVE_CELLS)
-        screen.blit(text, (TEXT_MARGIN, text_offset))
+        text = default_font.render(rule, True, c.COLOR_TEXT)
+        screen.blit(text, (c.TEXT_MARGIN, text_offset))
         text_offset += 40
 
 
-def stats(screen, cells, max_alive):
+def display_stats(screen, count_alive, max_alive):
     default_font = pygame.font.Font(None, 21)
-    count_alive = np.count_nonzero(cells)
-    if max_alive < count_alive:
-        max_alive = count_alive
     stats_text = ['GAME STATS',
                   f'Alive cells: {count_alive}',
                   f'Max alive cells: {max_alive}']
     text_offset = 220
     for stat in stats_text:
-        text = default_font.render(stat, True, COLOR_ALIVE_CELLS)
-        screen.blit(text, (TEXT_MARGIN, text_offset))
+        text = default_font.render(stat, True, c.COLOR_TEXT)
+        screen.blit(text, (c.TEXT_MARGIN, text_offset))
         text_offset += 40
+
+
+def calculate_and_display_stats(screen, cells, max_alive):
+    count_alive = np.count_nonzero(cells)
+    if max_alive < count_alive:
+        max_alive = count_alive
+    display_stats(screen, count_alive, max_alive)
     return max_alive
 
 
@@ -102,38 +93,45 @@ def update_screen(screen, cells, size):
     pygame.display.update()
 
 
-def main():
+def game_init():
     pygame.init()
-    screen = pygame.display.set_mode(SCREEN_SIZE)
-    cells = np.zeros((SCREEN_HEIGHT // CELLS_SIZE, ACTIVE_WIDTH // CELLS_SIZE))
-    screen.fill(COLOR_GRID)
-    rules(screen)
+    screen = pygame.display.set_mode(c.SCREEN_SIZE)
+    cells = np.zeros(
+        (c.SCREEN_HEIGHT // c.CELLS_SIZE, c.ACTIVE_WIDTH // c.CELLS_SIZE)
+    )
+    screen.fill(c.COLOR_GRID)
+    display_rules(screen)
     max_alive = 0
-    stats(screen, cells, max_alive)
-    update(screen, cells, CELLS_SIZE)
+    calculate_and_display_stats(screen, cells, max_alive)
+    update(screen, cells, c.CELLS_SIZE)
     pygame.display.flip()
     pygame.display.update()
     running = False
+    game_loop(running, screen, cells, max_alive)
 
+
+def set_cells_via_mouse(cells, screen):
+    pos = pygame.mouse.get_pos()
+    if (pos[0] // c.CELLS_SIZE) < c.ACTIVE_WIDTH // c.CELLS_SIZE:
+        cells[pos[1] // c.CELLS_SIZE, pos[0] // c.CELLS_SIZE] = 1
+    update_screen(screen, cells, c.CELLS_SIZE)
+
+
+def game_loop(running, screen, cells, max_alive):
     while True:
         for event in pygame.event.get():
-            running, flag = handle_keys(event, running, screen,
-                                        cells, CELLS_SIZE)
+            running, flag = handle_keys(
+                event, running, screen, cells, c.CELLS_SIZE
+            )
             if not flag:
                 return
             if pygame.mouse.get_pressed()[0]:
-                pos = pygame.mouse.get_pos()
-                cells[pos[1] // CELLS_SIZE, pos[0] // CELLS_SIZE] = 1
-                update_screen(screen, cells, CELLS_SIZE)
-        screen.fill(COLOR_GRID)
-        rules(screen)
-        max_alive = stats(screen, cells, max_alive)
+                set_cells_via_mouse(cells, screen)
+        screen.fill(c.COLOR_GRID)
+        display_rules(screen)
+        max_alive = calculate_and_display_stats(screen, cells, max_alive)
         if running:
-            cells = update(screen, cells, CELLS_SIZE, show_progress=True)
+            cells = update(screen, cells, c.CELLS_SIZE, show_progress=True)
             pygame.display.update()
             sleep(0.02)
         sleep(0.001)
-
-
-if __name__ == "__main__":
-    main()
